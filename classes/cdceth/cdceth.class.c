@@ -1525,22 +1525,7 @@ void nDoEvent(struct NepClassEth *ncp, ULONG events)
 
 /* /// "support routines" */
 /* SANA-II buffer management functions take their arguments in a0/a1/d0 */
-static inline void *callcopy(void *routine,
-                             void *to,
-                             void *from,
-                             ULONG len)
-{
-    register APTR a0 __asm("a0") = to;
-    register APTR a1 __asm("a1") = from;
-    register ULONG d0 __asm("d0") = len;
-    register ULONG d1 __asm("d1");
-
-    __asm volatile("jsr (%4)"
-                   : "+r" (d0), "=r" (d1), "+r" (a0), "+r" (a1)
-                   : "a" (routine)
-                   : "cc", "memory");
-    return (void *) d0;
-}
+typedef BOOL (*S2CopyBuffFunc)(APTR to asm("a0"), APTR from asm("a1"), ULONG len asm("d0"));
 
 #define callfilter CallHookPkt
 /* \\\ */
@@ -1600,7 +1585,8 @@ BOOL nWritePacket(struct NepClassEth *ncp, struct IOSana2Req *ioreq)
     }
 
     /* Dma not available, fallback to regular copy */
-    if(callcopy(bufman->bm_CopyFromBuf, copydest, ioreq->ios2_Data, ioreq->ios2_DataLength) == NULL)
+    S2CopyBuffFunc CopyFromBuff = (S2CopyBuffFunc) bufman->bm_CopyFromBuf;
+    if(!CopyFromBuff(copydest, ioreq->ios2_Data, ioreq->ios2_DataLength))
     {
         KPRINTF(10, ("writepacket: copyfrom returned failure!\n"));
 
@@ -1716,8 +1702,8 @@ UWORD nReadIOReq(struct NepClassEth *ncp, struct EtherPacketHeader *eph, UWORD d
     }
 
     /* Finally copy the packet data! */
-    if(callcopy(((struct BufMan *) ioreq->ios2_BufferManagement)->bm_CopyToBuf,
-               ioreq->ios2_Data, copyfrom, ioreq->ios2_DataLength))
+    S2CopyBuffFunc CopyToBuff = (S2CopyBuffFunc) ((struct BufMan *) ioreq->ios2_BufferManagement)->bm_CopyToBuf;
+    if(CopyToBuff(ioreq->ios2_Data, copyfrom, ioreq->ios2_DataLength))
     {
         DB(
         KPRINTF(5, ("readioreq: copytobuffed packet ior 0x%08lx, %04lx%08lx < %04lx%08lx, type %lu, %lu bytes, %s%s%s\n",
