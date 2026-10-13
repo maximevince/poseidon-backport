@@ -1062,10 +1062,10 @@ struct NepClassEth * nAllocEth(void)
             {
                 if(!psdSetAltInterface(ncp->ncp_EP0Pipe, ncp->ncp_Interface))
                 {
-                    psdAddErrorMsg(RETURN_WARN, (STRPTR) libname,
+                    psdAddErrorMsg(RETURN_FAIL, (STRPTR) libname,
                                    "Could not select data interface alternate setting!");
                 }
-                if((ncp->ncp_EPOutPipe = psdAllocPipe(ncp->ncp_Device, ncp->ncp_TaskMsgPort, ncp->ncp_EPOut)))
+                else if((ncp->ncp_EPOutPipe = psdAllocPipe(ncp->ncp_Device, ncp->ncp_TaskMsgPort, ncp->ncp_EPOut)))
                 {
                     /* Allow continuous retries without aborting on NAK timeouts. */
                     psdSetAttrs(PGA_PIPE, ncp->ncp_EPOutPipe,
